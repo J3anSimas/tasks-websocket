@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script>
+      const boardId = window.location.pathname.split("/")[2];
+      var socket = new WebSocket(
+        "ws://" + window.location.host + "/ws/" + boardId
+      );
+
+      socket.onopen = function (event) {
+        console.log("WebSocket connected!");
+      };
+
+      socket.onmessage = function (event) {
+        const card = JSON.parse(event.data);
+        const cardElement = document.getElementById(card.cardId);
+        switch (card.status) {
+          case "To do":
+            document.querySelector("#todo").appendChild(cardElement);
+            break;
+          case "In Progress":
+            document.querySelector("#in-progress").appendChild(cardElement);
+            break;
+          case "Finished":
+            document.querySelector("#finished").appendChild(cardElement);
+            break;
+        }
+        cardElement.querySelector("p").innerText = card.status;
+      };
+
+      function sendMessage(cardId, status) {
+        const message = {
+          cardId,
+          status,
+        };
+        messageString = JSON.stringify(message);
+        console.log("Sending message:", messageString);
+
+        socket.send(messageString);
+      }
+      function allowDrop(ev) {
+        ev.preventDefault();
+      }
+
+      function drag(ev) {
+        ev.dataTransfer.setData("text", ev.target.id);
+      }
+
+      function drop(ev, status) {
+        ev.preventDefault();
+        var data = ev.dataTransfer.getData("text");
+        ev.target.appendChild(document.getElementById(data));
+        document.getElementById(data).querySelector("p").innerText = status;
+        fetch("/cards/" + data, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status,
+          }),
+        })
+          .then((x) => {
+            try {
+              sendMessage(data, status);
+            } catch (e) {
+              console.log(e);
+            }
+          })
+          .catch((err) => console.log(err));
+      }
+    </script>
+  </head>
+  <body>
+    <div style="display: flex; justify-content: end">
+      <button>New Card</button>
+    </div>
+    <h2>{{ .Board.Name }}</h2>
+    <!-- To do Column -->
+    <div style="display: flex; justify-content: space-between; gap: 6px">
+      <div
+        id="todo"
+        ondragover="allowDrop(event)"
+        ondrop="drop(event, 'To do')"
+        style="
+          height: calc(100vh - 100px);
+          padding: 0 6px;
+          width: 100%;
+          background-color: #f0f0f0;
+        "
+      >
+        <h4>To do</h4>
+        {{ if .Cards }} {{ range .Cards }} {{ if eq .Status "To do" }}
+        <div
+          draggable="true"
+          id="{{ .ID }}"
+          ondragstart="drag(event)"
+          style="padding: 16px; border: 1px solid black; border-radius: 6px"
+        >
+          <h3>{{ .Name }}</h3>
+          <p>{{ .Status }}</p>
+        </div>
+        {{ end }} {{ else }}
+        <p>No cards found</p>
+        {{ end }} {{ end }}
+      </div>
+
+      <!-- In Progress Column -->
+      <div
+        id="in-progress"
+        ondragover="allowDrop(event)"
+        ondrop="drop(event, 'In Progress')"
+        style="
+          height: calc(100vh - 100px);
+          padding: 0 6px;
+          width: 100%;
+          background-color: #f0f0f0;
+        "
+      >
+        <h4>In Progress</h4>
+        {{ if .Cards }} {{ range .Cards }} {{ if eq .Status "In Progress" }}
+        <div
+          draggable="true"
+          id="{{ .ID }}"
+          ondragstart="drag(event)"
+          style="padding: 16px; border: 1px solid black; border-radius: 6px"
+        >
+          <h3>{{ .Name }}</h3>
+          <p>{{ .Status }}</p>
+        </div>
+        {{ end }} {{ else }}
+        <p>No cards found</p>
+        {{ end }} {{ end }}
+      </div>
+
+      <!-- Finished Column -->
+      <div
+        id="finished"
+        ondragover="allowDrop(event)"
+        ondrop="drop(event, 'Finished')"
+        style="
+          height: calc(100vh - 100px);
+          padding: 0 6px;
+          width: 100%;
+          background-color: #f0f0f0;
+        "
+      >
+        <h4>Finished</h4>
+        {{ if .Cards }} {{ range .Cards }} {{ if eq .Status "Finished" }}
+        <div
+          draggable="true"
+          id="{{ .ID }}"
+          ondragstart="drag(event)"
+          style="padding: 16px; border: 1px solid black; border-radius: 6px"
+        >
+          <h3>{{ .Name }}</h3>
+          <p>{{ .Status }}</p>
+        </div>
+        {{ end }} {{ else }}
+        <p>No cards found</p>
+        {{ end }} {{ end }}
+      </div>
+    </div>
+  </body>
+</html>
